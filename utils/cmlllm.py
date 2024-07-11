@@ -27,14 +27,12 @@ import torch
 import logging
 import sys
 import subprocess
-import gradio as gr
+import streamlit as st
 import atexit
 import utils.vectordb as vectordb
 from llama_index.core.memory import ChatMemoryBuffer
 from dotenv import load_dotenv
 from utils.common import supported_llm_models, supported_embed_models
-
-# from llama_index.core.chat_engine import ContextChatEngine
 
 load_dotenv()
 
@@ -42,14 +40,11 @@ hf_token = os.getenv("HF_TOKEN")
 
 QUESTIONS_FOLDER = "questions"
 
-
 def exit_handler():
     print("cmlllmapp is exiting!")
     vectordb.stop_vector_db()
 
-
 atexit.register(exit_handler)
-
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
@@ -57,33 +52,26 @@ logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 llama_debug = LlamaDebugHandler(print_trace_on_end=True)
 callback_manager = CallbackManager(handlers=[llama_debug])
 
-
 def get_supported_embed_models():
     embedList = list(supported_embed_models)
     return embedList
 
-
 chat_engine_map = {}
-
 
 def get_supported_models():
     llmList = list(supported_llm_models)
     return llmList
 
-
 active_collection_available = {"default_collection": False}
-
 
 def get_active_collections():
     return list(active_collection_available)
-
 
 print("resetting the questions")
 print(subprocess.run([f"rm -rf {QUESTIONS_FOLDER}"], shell=True))
 
 milvus_start = vectordb.reset_vector_db()
 print(f"milvus_start = {milvus_start}")
-
 
 def infer2(msg, history, collection_name):
     query_text = msg
@@ -117,11 +105,9 @@ def infer2(msg, history, collection_name):
         print(op)
         yield op
 
-
 class CMLLLM:
     MODELS_PATH = "./models"
     EMBED_PATH = "./embed_models"
-
     questions_folder = QUESTIONS_FOLDER
 
     def __init__(
@@ -137,12 +123,14 @@ class CMLLLM:
         memory_token_limit=3900,
         sentense_embedding_percentile_cutoff=0.8,
         similarity_top_k=2,
-        progress=gr.Progress(),
+        progress_bar=None,  # Add progress_bar parameter
     ):
         if len(model_name) == 0:
             model_name = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF"
         if len(embed_model_name) == 0:
             embed_model_name = "thenlper/gte-large"
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
         self.active_model_name = model_name
         self.active_embed_model_name = embed_model_name
         n_gpu_layers = 0
@@ -152,7 +140,8 @@ class CMLLLM:
 
         self.node_parser = SimpleNodeParser(chunk_size=1024, chunk_overlap=128)
 
-        progress((1, 4), desc="setting the global parameters")
+        if progress_bar:
+            progress_bar.progress(25)
 
         self.set_global_settings(
             model_name=model_name,
@@ -162,13 +151,14 @@ class CMLLLM:
             context_window=context_window,
             n_gpu_layers=n_gpu_layers,
             node_parser=self.node_parser,
-            progress=progress,
+            progress_bar=progress_bar,
         )
-        progress((1.5, 4), desc="done, setting the global parameters")
-        self.dim = dim
-        self.similarity_top_k = similarity_top_k
-        self.sentense_embedding_percentile_cutoff = sentense_embedding_percentile_cutoff
-        self.memory_token_limit = memory_token_limit
+
+        if progress_bar:
+            progress_bar.progress(50)
+
+        if progress_bar:
+            progress_bar.progress(100)
 
     def get_active_model_name(self):
         print(f"active model is {self.active_model_name}")
@@ -178,7 +168,7 @@ class CMLLLM:
         print(f"active embed model is {self.active_embed_model_name}")
         return self.active_embed_model_name
 
-    def delete_collection_name(self, collection_name, progress=gr.Progress()):
+    def delete_collection_name(self, collection_name, progress_bar=None):
         print(f"delete_collection_name : collection = {collection_name}")
 
         if collection_name is None or len(collection_name) == 0:
@@ -186,12 +176,13 @@ class CMLLLM:
 
         active_collection_available.pop(collection_name, None)
         chat_engine_map.pop(collection_name, None)
-        progress((1, 1), desc=f"Successfully deleted the collection {collection_name}")
+        if progress_bar:
+            progress_bar.progress(100)
 
     def set_collection_name(
         self,
         collection_name,
-        progress=gr.Progress(),
+        progress_bar=None,
     ):
         print(f"set_collection_name : collection = {collection_name}")
 
@@ -207,18 +198,12 @@ class CMLLLM:
             print(
                 f"collection {collection_name} is already configured and chat_engine is set"
             )
-            progress(
-                (1, 1),
-                desc=f"collection {collection_name} is already configured and chat_engine is set.",
-            )
+            if progress_bar:
+                progress_bar.progress(100)
             return
 
-        progress(
-            (1, 4),
-            desc=f"creating or getting the vector db collection {collection_name}",
-        )
-
-        progress((2, 4), desc="setting the vector db")
+        if progress_bar:
+            progress_bar.progress(25)
 
         vector_store = MilvusVectorStore(
             dim=self.dim,
@@ -227,7 +212,8 @@ class CMLLLM:
 
         index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 
-        progress((3, 4), desc="setting the chat engine")
+        if progress_bar:
+            progress_bar.progress(50)
 
         chat_engine = index.as_chat_engine(
             chat_mode=ChatMode.CONTEXT,
@@ -248,14 +234,15 @@ class CMLLLM:
             ),
             similarity_top_k=self.similarity_top_k,
         )
-        progress(
-            (4, 4),
-            desc=f"successfully updated the chat engine for the collection name {collection_name}",
-        )
+        if progress_bar:
+            progress_bar.progress(75)
 
         chat_engine_map[collection_name] = chat_engine
 
-    def ingest(self, files, questions, collection_name, progress=gr.Progress()):
+        if progress_bar:
+            progress_bar.progress(100)
+
+    def ingest(self, files, questions, collection_name, progress_bar=None):
         if not (collection_name in active_collection_available):
             return f"Some issues with the llm and colection {collection_name} setup. please try setting up the llm and the vector db again."
 
@@ -270,7 +257,8 @@ class CMLLLM:
 
         print(f"collection = {collection_name}, questions = {questions}")
 
-        progress(0.3, desc="loading the documents")
+        if progress_bar:
+            progress_bar.progress(10)
 
         filename_fn = lambda filename: {"file_name": os.path.basename(filename)}
 
@@ -281,7 +269,9 @@ class CMLLLM:
             op = "Questions\n"
             i = 1
             for file in files:
-                progress(0.4, desc=f"loading document {os.path.basename(file)}")
+                if progress_bar:
+                    progress_bar.progress(20)
+
                 reader = SimpleDirectoryReader(
                     input_files=[file],
                     file_extractor=file_extractor,
@@ -289,7 +279,8 @@ class CMLLLM:
                 )
                 document = reader.load_data(num_workers=1, show_progress=True)
 
-                progress(0.4, desc=f"done loading document {os.path.basename(file)}")
+                if progress_bar:
+                    progress_bar.progress(30)
 
                 vector_store = MilvusVectorStore(
                     dim=self.dim,
@@ -300,18 +291,17 @@ class CMLLLM:
                     vector_store=vector_store
                 )
 
-                progress(
-                    0.4, desc=f"start indexing the document {os.path.basename(file)}"
-                )
+                if progress_bar:
+                    progress_bar.progress(40)
+
                 nodes = self.node_parser.get_nodes_from_documents(document)
 
                 index = VectorStoreIndex(
                     nodes, storage_context=storage_context, show_progress=True
                 )
 
-                progress(
-                    0.4, desc=f"done indexing the document {os.path.basename(file)}"
-                )
+                if progress_bar:
+                    progress_bar.progress(50)
 
                 ops = (
                     "Completed data ingestion. took "
@@ -320,15 +310,13 @@ class CMLLLM:
                 )
 
                 print(f"{ops}")
-                progress(0.4, desc=op)
+
+                if progress_bar:
+                    progress_bar.progress(60)
 
                 start_time = time.time()
                 print(
                     f"start dataset generation from the document {os.path.basename(file)}."
-                )
-                progress(
-                    0.4,
-                    desc=f"start dataset generation from the document {os.path.basename(file)}.",
                 )
 
                 data_generator = DatasetGenerator.from_documents(documents=document)
@@ -339,14 +327,14 @@ class CMLLLM:
                     + " seconds."
                 )
                 print(f"{dataset_op}")
-                progress(0.4, desc=dataset_op)
+
+                if progress_bar:
+                    progress_bar.progress(70)
+
                 print(
                     f"start generating questions from the document {os.path.basename(file)}"
                 )
-                progress(
-                    0.4,
-                    desc=f"generating questions from the document {os.path.basename(file)}",
-                )
+
                 eval_questions = data_generator.generate_questions_from_nodes(
                     num=questions
                 )
@@ -358,26 +346,31 @@ class CMLLLM:
                 print(
                     f"done generating questions from the document {os.path.basename(file)}"
                 )
-                progress(
-                    0.4,
-                    desc=f"done generating questions from the document {os.path.basename(file)}",
-                )
+
+                if progress_bar:
+                    progress_bar.progress(80)
+
                 print(subprocess.run([f"rm -f {file}"], shell=True))
 
-            progress(0.9, desc=f"done processing the documents {collection_name}...")
+            if progress_bar:
+                progress_bar.progress(90)
+
             print(f"done processing the documents {collection_name}...")
             active_collection_available[collection_name] = True
 
         except Exception as e:
             print(e)
             ops = f"ingestion failed with exception {e}"
-            progress(0.9, desc=ops)
+            if progress_bar:
+                progress_bar.progress(100)
+            return ops
+
         return op
 
-    def upload_document_and_ingest(self, files, questions, progress=gr.Progress()):
+    def upload_document_and_ingest(self, files, questions, progress_bar=None):
         if len(files) == 0:
             return "Please add some files..."
-        return self.ingest(files, questions, progress)
+        return self.ingest(files, questions, progress_bar)
 
     def set_global_settings(
         self,
@@ -388,7 +381,7 @@ class CMLLLM:
         context_window,
         n_gpu_layers,
         node_parser,
-        progress=gr.Progress(),
+        progress_bar=None,
     ):
         self.set_global_settings_common(
             model_name=model_name,
@@ -397,10 +390,8 @@ class CMLLLM:
             max_new_tokens=max_new_tokens,
             context_window=context_window,
             n_gpu_layers=n_gpu_layers,
-            progress=progress,
+            progress_bar=progress_bar,
         )
-
-        # Settings.callback_manager = callback_manager
         Settings.node_parser = node_parser
 
     def set_global_settings_common(
@@ -411,7 +402,7 @@ class CMLLLM:
         max_new_tokens,
         context_window,
         n_gpu_layers,
-        progress,
+        progress_bar=None,
     ):
         print(
             f"Enter set_global_settings_common. model_name = {model_name}, embed_model_path = {embed_model_path}"
@@ -420,30 +411,32 @@ class CMLLLM:
         self.active_embed_model_name = embed_model_path
         model_path = self.get_model_path(model_name)
         print(f"model_path = {model_path}")
-        progress(0.1, f"Starting the model {model_path}")
+
+        if progress_bar:
+            progress_bar.progress(10)
 
         Settings.llm = LlamaCPP(
             model_path=model_path,
             temperature=temperature,
             max_new_tokens=max_new_tokens,
-            # llama2 has a context window of 4096 tokens, but we set it lower to allow for some wiggle room
             context_window=context_window,
-            # kwargs to pass to __call__()
-            # generate_kwargs={"temperature": 0.0, "top_k": 5, "top_p": 0.95},
             generate_kwargs={"temperature": temperature},
-            # kwargs to pass to __init__()
-            # set to at least 1 to use GPU
             model_kwargs={"n_gpu_layers": n_gpu_layers},
-            # transform inputs into Llama2 format
             messages_to_prompt=messages_to_prompt,
             completion_to_prompt=completion_to_prompt,
             verbose=True,
         )
-        progress(0.3, f"Setting the embed model {embed_model_path}")
+
+        if progress_bar:
+            progress_bar.progress(30)
+
         Settings.embed_model = HuggingFaceEmbedding(
             model_name=embed_model_path,
             cache_folder=self.EMBED_PATH,
         )
+
+        if progress_bar:
+            progress_bar.progress(50)
 
     def get_model_path(self, model_name):
         filename = supported_llm_models[model_name]
