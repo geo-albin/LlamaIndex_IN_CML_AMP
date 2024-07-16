@@ -40,6 +40,7 @@ torch==2.2.2
 milvus==2.3.5
 unstructured==0.13.2
 spacy==3.7.4
-
+streamlit
 python-dotenv
 requests
+streamlit-option-menu
