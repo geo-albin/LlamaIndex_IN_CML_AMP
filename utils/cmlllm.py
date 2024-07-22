@@ -80,7 +80,6 @@ def infer2(msg, history, collection_name):
     if len(query_text) == 0:
         yield "Please ask some questions"
         return
-
     if (
         collection_name in active_collection_available
         and active_collection_available[collection_name] != True
@@ -99,7 +98,7 @@ def infer2(msg, history, collection_name):
         generated_text = ""
         for token in streaming_response.response_gen:
             generated_text = generated_text + token
-            yield generated_text
+        yield generated_text
     except Exception as e:
         op = f"failed with exception {e}"
         print(op)
@@ -129,8 +128,6 @@ class CMLLLM:
             model_name = "TheBloke/Mistral-7B-Instruct-v0.2-GGUF"
         if len(embed_model_name) == 0:
             embed_model_name = "thenlper/gte-large"
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
         self.active_model_name = model_name
         self.active_embed_model_name = embed_model_name
         n_gpu_layers = 0
@@ -153,6 +150,10 @@ class CMLLLM:
             node_parser=self.node_parser,
             progress_bar=progress_bar,
         )
+        self.dim = dim
+        self.similarity_top_k = similarity_top_k
+        self.sentense_embedding_percentile_cutoff = sentense_embedding_percentile_cutoff
+        self.memory_token_limit = memory_token_limit
 
         if progress_bar:
             progress_bar.progress(50)
@@ -238,13 +239,13 @@ class CMLLLM:
             progress_bar.progress(75)
 
         chat_engine_map[collection_name] = chat_engine
-
+        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
         if progress_bar:
             progress_bar.progress(100)
 
     def ingest(self, files, questions, collection_name, progress_bar=None):
         if not (collection_name in active_collection_available):
-            return f"Some issues with the llm and colection {collection_name} setup. please try setting up the llm and the vector db again."
+            return f"Some issues with the llm and collection {collection_name} setup. please try setting up the llm and the vector db again."
 
         file_extractor = {
             ".html": UnstructuredReader(),
@@ -258,7 +259,7 @@ class CMLLLM:
         print(f"collection = {collection_name}, questions = {questions}")
 
         if progress_bar:
-            progress_bar.progress(10)
+            progress_bar.progress(20)
 
         filename_fn = lambda filename: {"file_name": os.path.basename(filename)}
 
@@ -270,17 +271,19 @@ class CMLLLM:
             i = 1
             for file in files:
                 if progress_bar:
-                    progress_bar.progress(20)
+                    progress_bar.progress(40)
 
                 reader = SimpleDirectoryReader(
-                    input_files=[file],
-                    file_extractor=file_extractor,
-                    file_metadata=filename_fn,
+                    input_files=[file], file_extractor=file_extractor, file_metadata=filename_fn
                 )
-                document = reader.load_data(num_workers=1, show_progress=True)
+                document = reader.load_data(num_workers=1)
+                if progress_bar:
+                    progress_bar.progress(60)
+
+                print(f"document = {document}")
 
                 if progress_bar:
-                    progress_bar.progress(30)
+                    progress_bar.progress(60)
 
                 vector_store = MilvusVectorStore(
                     dim=self.dim,
@@ -290,51 +293,16 @@ class CMLLLM:
                 storage_context = StorageContext.from_defaults(
                     vector_store=vector_store
                 )
-
-                if progress_bar:
-                    progress_bar.progress(40)
-
                 nodes = self.node_parser.get_nodes_from_documents(document)
-
                 index = VectorStoreIndex(
-                    nodes, storage_context=storage_context, show_progress=True
+                    nodes, storage_context=storage_context
                 )
-
-                if progress_bar:
-                    progress_bar.progress(50)
-
-                ops = (
-                    "Completed data ingestion. took "
-                    + str(time.time() - start_time)
-                    + " seconds."
-                )
-
-                print(f"{ops}")
-
-                if progress_bar:
-                    progress_bar.progress(60)
-
-                start_time = time.time()
-                print(
-                    f"start dataset generation from the document {os.path.basename(file)}."
-                )
-
                 data_generator = DatasetGenerator.from_documents(documents=document)
-
                 dataset_op = (
                     f"Completed data set generation for file {os.path.basename(file)}. took "
                     + str(time.time() - start_time)
                     + " seconds."
                 )
-                print(f"{dataset_op}")
-
-                if progress_bar:
-                    progress_bar.progress(70)
-
-                print(
-                    f"start generating questions from the document {os.path.basename(file)}"
-                )
-
                 eval_questions = data_generator.generate_questions_from_nodes(
                     num=questions
                 )
@@ -342,30 +310,40 @@ class CMLLLM:
                 for q in eval_questions:
                     op += str(q) + "\n"
                     i += 1
-
-                print(
-                    f"done generating questions from the document {os.path.basename(file)}"
-                )
-
                 if progress_bar:
                     progress_bar.progress(80)
 
-                print(subprocess.run([f"rm -f {file}"], shell=True))
-
-            if progress_bar:
-                progress_bar.progress(90)
-
-            print(f"done processing the documents {collection_name}...")
-            active_collection_available[collection_name] = True
-
-        except Exception as e:
-            print(e)
-            ops = f"ingestion failed with exception {e}"
+#                if questions:
+#                  try:
+#                    snapshot_download(
+#                        "grappa-data/semqa-data", repo_type="dataset", use_auth_token=hf_token
+#                    )
+#                    file_path = hf_hub_download(
+#                        "grappa-data/semqa-data",
+#                        "QA_CoQA/qa_pairs.json",
+#                        repo_type="dataset",
+#                        use_auth_token=hf_token,
+#                    )
+#                    qg = DatasetGenerator(questions_folder=self.questions_folder)
+#                    qg.load_questions(file_path)
+#                    questions = qg.generate_questions_from_text(documents[0].get_text())
+#                    op += f"Generated questions for document {i} are: {questions}\n"
+#                  except Exception as e:
+#                    print(f"Exception in question generation: {e}")
+#                    if progress_bar:
+#                      progress_bar.progress(80, f"Exception in question generation: {e}")
+                if progress_bar:
+                    progress_bar.progress(90)
+                active_collection_available[collection_name] = True
+                i += 1
             if progress_bar:
                 progress_bar.progress(100)
-            return ops
-
-        return op
+            print(op)
+            return op
+        except Exception as e:
+            print(f"Exception in ingest: {e}")
+            active_collection_available[collection_name] = False
+            return f"Error: {e}"
 
     def upload_document_and_ingest(self, files, questions, progress_bar=None):
         if len(files) == 0:
@@ -454,7 +432,7 @@ class CMLLLM:
         embed_model_path = snapshot_download(
             repo_id=embed_model,
             resume_download=True,
-            cache_dir=self.EMBEDS_PATH,
+            cache_dir=self.EMBED_PATH,
             local_files_only=True,
             token=hf_token,
         )
