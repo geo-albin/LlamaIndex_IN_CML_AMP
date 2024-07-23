@@ -9,7 +9,7 @@ date: "2024-04-22"
 
 runtimes:
   - editor: PBJ Workbench
-    kernel: Python 3.10
+    kernel: Python 3.11
     edition: Nvidia GPU
 
 tasks:
