@@ -101,6 +101,7 @@ def demo():
             "Select Collection",
             st.session_state.collection_list_items
         )
+        st.session_state.llm.set_collection_name(collection_name=collection_name)
         saved_files = []
         if st.session_state.get('processing', False):
             submit_button_disabled = True
@@ -110,7 +111,6 @@ def demo():
             if uploaded_files:
                 st.session_state['processing'] = True
                 for uploaded_file in uploaded_files:
-                    st.spinner("@@@@@@@@@@...")
                     st.spinner(uploaded_file)
                     saved_path = save_uploadedfile(uploaded_file)
                     saved_files.append(saved_path)
@@ -134,9 +134,16 @@ def demo():
                 st.session_state.num_questions = num_questions
             with st.expander("Collection configuration"):
                 custom_input = st.text_input("Enter your custom collection name:")
-                if st.button("Refresh the collection list") and custom_input:
+                if st.button("Add to the collection list") and custom_input:
                     st.session_state.collection_list_items.append(custom_input)
                     st.experimental_rerun()
+                if st.button("Delete the Selected collection"):
+                  if collection_name != "default_collection":
+                    st.session_state.collection_list_items.remove(collection_name)
+                    st.session_state.llm.delete_collection_name(collection_name)
+                    st.experimental_rerun()
+                  else:
+                    st.write("You can't delete default collection")
 
     if 'messages' not in st.session_state:
         st.session_state.messages = [{'role': 'assistant', "content": 'Hello! Upload a PDF/Link and ask me anything about the content.'}]
@@ -150,8 +157,7 @@ def demo():
             st.write(message['content'])
     if st.session_state['documents_processed']:
         user_prompt = st.chat_input("Ask me anything about the content of the document:")
-        if uploaded_files:
-            st.session_state.messages = [{'role': 'assistant', "content": f'Using collection: {collection_name}'}]
+        st.session_state.messages = [{'role': 'assistant', "content": f'Using collection: {collection_name}'}]
 
         if user_prompt:
             st.session_state.messages.append({"role": "user", "content": user_prompt})
