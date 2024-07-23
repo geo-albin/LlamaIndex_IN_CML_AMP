@@ -253,8 +253,8 @@ class CMLLLM:
             ".txt": UnstructuredReader(),
         }
 
-        if torch.cuda.is_available():
-            file_extractor[".pdf"] = PDFNougatOCR()
+#        if torch.cuda.is_available():
+#            file_extractor[".pdf"] = PDFNougatOCR()
 
         print(f"collection = {collection_name}, questions = {questions}")
 
@@ -271,19 +271,20 @@ class CMLLLM:
             i = 1
             for file in files:
                 if progress_bar:
-                    progress_bar.progress(40)
+                    progress_bar.progress(30)
 
                 reader = SimpleDirectoryReader(
                     input_files=[file], file_extractor=file_extractor, file_metadata=filename_fn
                 )
+                progress_bar.progress(40)
                 document = reader.load_data(num_workers=1)
                 if progress_bar:
-                    progress_bar.progress(60)
+                    progress_bar.progress(60, "document processed")
 
                 print(f"document = {document}")
 
                 if progress_bar:
-                    progress_bar.progress(60)
+                    progress_bar.progress(70, "document processed")
 
                 vector_store = MilvusVectorStore(
                     dim=self.dim,

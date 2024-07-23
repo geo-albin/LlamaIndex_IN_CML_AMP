@@ -11,13 +11,11 @@ from utils.check_dependency import check_gpu_enabled
 
 MAX_QUESTIONS = 5
 
-print("/n/n/n this is 1 /n/n/n")
 file_types = ["pdf", "html", "txt"]
 
 llm_choice = get_supported_models()
 embed_models = get_supported_embed_models()
 progress = st.progress
-
 
 def save_uploadedfile(uploadedfile):
     save_path = os.path.join("uploaded_files", uploadedfile.name)
@@ -51,7 +49,6 @@ def get_latest_default_collection():
 
     return collection
 
-
 def validate_llm(model_name, embed_model_name):
     ret = True
     if model_name is None or len(model_name) == 0:
@@ -63,7 +60,6 @@ def validate_llm(model_name, embed_model_name):
         ret = False
 
     return ret
-
 
 def validate_collection_name(collectionname):
     ret = True
@@ -78,17 +74,19 @@ def upload_document_and_ingest_new(
 ):
     if files is None or len(files) == 0:
         print("upload files")
-    # progress_bar =
     output = st.session_state.llm.ingest(files, questions, collection_name, st.progress(0))
     return output
 
-
 if 'llm' not in st.session_state:
     with st.spinner('Initializing LLM...'):
-      st.session_state.llm = CMLLLM()
+        st.session_state.llm = CMLLLM()
 if 'collection_list_items' not in st.session_state:
     st.session_state.collection_list_items = ["default_collection"]
     st.session_state.llm.set_collection_name(collection_name=st.session_state.collection_list_items[0])
+if 'num_questions' not in st.session_state:
+    st.session_state.num_questions = 1
+if 'used_collections' not in st.session_state:
+    st.session_state.used_collections = []
 
 header = get_latest_default_collection()
 
@@ -109,31 +107,36 @@ def demo():
         else:
             submit_button_disabled = False
         if st.button("Submit & Process", disabled=submit_button_disabled):
-
             if uploaded_files:
                 st.session_state['processing'] = True
                 for uploaded_file in uploaded_files:
+                    st.spinner("@@@@@@@@@@...")
+                    st.spinner(uploaded_file)
                     saved_path = save_uploadedfile(uploaded_file)
                     saved_files.append(saved_path)
 
-
             if uploaded_files:
                 with st.spinner("Processing..."):
-                    questions = upload_document_and_ingest_new(saved_files, 1, collection_name, progress)
+                    questions = upload_document_and_ingest_new(saved_files, st.session_state.num_questions, collection_name, progress)
                     st.success("Done")
                     st.session_state['documents_processed'] = True
                     st.session_state['questions'] = questions
                     st.session_state['processing'] = False
+                    st.session_state.used_collections.append(collection_name)  # Track used collection
                     if questions:
                         st.text_area("Auto-Generated Questions", questions)
 
+        st.checkbox("Advanced Settings", value=False, key='advanced_settings')
 
-        with st.expander("Collection configuration"):
-            custom_input = st.text_input("Enter your custom collection name:")
-            if st.button("Refresh the collection list") and custom_input:
-              st.session_state.collection_list_items.append(custom_input)
-              st.experimental_rerun()
-
+        if st.session_state['advanced_settings']:
+            num_questions = st.slider("Number of question generations", min_value=1, max_value=10, value=st.session_state.num_questions, key='num_questions')
+            if num_questions != st.session_state.num_questions:
+                st.session_state.num_questions = num_questions
+            with st.expander("Collection configuration"):
+                custom_input = st.text_input("Enter your custom collection name:")
+                if st.button("Refresh the collection list") and custom_input:
+                    st.session_state.collection_list_items.append(custom_input)
+                    st.experimental_rerun()
 
     if 'messages' not in st.session_state:
         st.session_state.messages = [{'role': 'assistant', "content": 'Hello! Upload a PDF/Link and ask me anything about the content.'}]
@@ -146,35 +149,27 @@ def demo():
         with st.chat_message(message['role']):
             st.write(message['content'])
     if st.session_state['documents_processed']:
-      st.subheader("Auto-Generated Questions")
-      user_prompt = st.chat_input("Ask me anything about the content of the document:")
-      if uploaded_files:
-          st.session_state.messages = [{'role': 'assistant', "content": 'Using default collection'}]
+        user_prompt = st.chat_input("Ask me anything about the content of the document:")
+        if uploaded_files:
+            st.session_state.messages = [{'role': 'assistant', "content": f'Using collection: {collection_name}'}]
 
-      if user_prompt:
-        st.session_state.messages.append({"role": "user", "content": user_prompt})
-        with st.chat_message("user"):
-            st.write(user_prompt)
+        if user_prompt:
+            st.session_state.messages.append({"role": "user", "content": user_prompt})
+            with st.chat_message("user"):
+                st.write(user_prompt)
 
-        with st.spinner("Thinking..."):
-            response = infer2(user_prompt, "", collection_name)
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response}
-        )
-
-        with st.chat_message("assistant"):
-            st.write(response)
-    else:
-            st.write(
-                "Documents are not yet processed. Please upload and process documents before asking questions."
+            with st.spinner("Thinking..."):
+                response = infer2(user_prompt, "", collection_name)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": response}
             )
 
+            with st.chat_message("assistant"):
+                st.write(response)
+    else:
+        st.write(
+            "Documents are not yet processed. Please upload and process documents before asking questions."
+        )
 
 if __name__ == "__main__":
-
     demo()
-
-
-
-
-

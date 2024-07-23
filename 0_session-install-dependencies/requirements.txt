@@ -18,6 +18,7 @@
 # milvus
 # unstructured
 # spacy
+
 streamlit
 llama-index==0.10.29
 llama-index-cli==0.1.11

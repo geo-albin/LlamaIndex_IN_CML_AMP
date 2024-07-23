@@ -15,7 +15,6 @@ MAX_QUESTIONS = 5
 file_types = ["pdf", "html", "txt"]
 
 llm_choice = get_supported_models()
-collection_list_items = get_active_collections()
 embed_models = get_supported_embed_models()
 
 def save_uploadedfile(uploadedfile):
@@ -76,19 +75,27 @@ def upload_document_and_ingest_new(files, questions, collection_name, progress_b
     output = llm.ingest(files, questions, collection_name, progress_bar)
     return output
 
+# Initialize session state variables
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = []
+
+if 'messages' not in st.session_state:
+    st.session_state.messages = [{'role': 'assistant', "content": 'Hello! Upload a PDF/Link and ask me anything about the content.'}]
+
+if 'used_collections' not in st.session_state:
+    st.session_state.used_collections = []
+
+if 'collection_list_items' not in st.session_state:
+    st.session_state.collection_list_items = get_active_collections()
+
+if 'num_questions' not in st.session_state:
+    st.session_state.num_questions = 1
+
 llm = CMLLLM()
-llm.set_collection_name(collection_name=collection_list_items[0])
+llm.set_collection_name(collection_name=st.session_state.collection_list_items[0])
 
+# Main function to run the Streamlit app.
 def demo():
-    """
-    Main function to run the Streamlit app.
-    """
-    if 'uploaded_files' not in st.session_state:
-        st.session_state.uploaded_files = []
-
-    if 'messages' not in st.session_state:
-        st.session_state.messages = [{'role': 'assistant', "content": 'Hello! Upload a PDF/Link and ask me anything about the content.'}]
-
     # Sidebar Navigation
     with st.sidebar:
         selected = option_menu(
@@ -107,17 +114,23 @@ def demo():
     if selected == "Home":
         st.title("AI Chat with your documents")
         uploaded_files = st.file_uploader("Upload your PDF/HTML/TXT Files", type=file_types, accept_multiple_files=True, key="home_upload")
+        collection_name = st.selectbox(
+            "Select Collection",
+            st.session_state.collection_list_items,
+            key='home_collection'
+        )
         if st.button("Submit & Process"):
             if uploaded_files:
                 saved_files = [save_uploadedfile(file) for file in uploaded_files]
                 st.session_state.uploaded_files.extend(saved_files)
                 with st.spinner("Processing..."):
                     progress_bar = st.progress(0)
-                    questions = upload_document_and_ingest_new(saved_files, st.session_state.get('nr_of_questions', 1), st.session_state.get('collection_name', "default_collection"), progress_bar)
+                    questions = upload_document_and_ingest_new(saved_files, st.session_state.get('num_questions', 1), collection_name, progress_bar)
                     st.success("Done")
                     st.session_state['documents_processed'] = True
                     st.session_state['questions'] = questions
                     st.session_state['processing'] = False
+                    st.session_state.used_collections.append(collection_name)  # Track used collection
                     if questions:
                         st.text_area("Auto-Generated Questions", questions)
 
@@ -147,7 +160,8 @@ def demo():
                     st.write(user_prompt)
 
                 with st.spinner("Thinking..."):
-                    response = next(infer2(user_prompt, "", st.session_state.get('collection_name', "default_collection")))
+                    collection_name = st.session_state.used_collections[-1] if st.session_state.used_collections else "default_collection"
+                    response = next(infer2(user_prompt, "", collection_name))
                 st.session_state.messages.append({'role': 'assistant', "content": response})
 
                 with st.chat_message("assistant"):
@@ -158,15 +172,17 @@ def demo():
     # Setting Tab: Configuration Options
     if selected == "Setting":
         st.title("Setting")
-        st.session_state.nr_of_questions = st.slider("Number of questions to be generated per document", 0, 10, 1)
+        st.slider("Number of questions to be generated per document", 0, 10, st.session_state.num_questions, key='num_questions')
         st.session_state.collection_name = st.selectbox(
             "Select Collection",
             options=get_active_collections(),
-            index=0
+            index=0,
+            key='setting_collection'
         )
 
         st.write("Selected Collection:", st.session_state.collection_name)
         if st.button("Refresh Collections"):
+            st.session_state.collection_list_items = get_active_collections()
             st.experimental_rerun()
             st.success("Collection Refreshed")
 
