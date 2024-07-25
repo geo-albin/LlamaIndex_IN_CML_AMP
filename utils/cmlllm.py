@@ -78,18 +78,13 @@ def infer2(msg, history, collection_name):
     print(f"query = {query_text}, collection name = {collection_name}")
 
     if len(query_text) == 0:
-        yield "Please ask some questions"
-        return
-    if (
-        collection_name in active_collection_available
-        and active_collection_available[collection_name] != True
-    ):
-        yield "No documents are processed yet. Please process some documents.."
-        return
+        return "Please ask some questions"
+
+    if collection_name in active_collection_available and active_collection_available[collection_name] != True:
+        return "No documents are processed yet. Please process some documents.."
 
     if collection_name not in chat_engine_map:
-        yield f"Chat engine not created for collection {collection_name}.."
-        return
+        return f"Chat engine not created for collection {collection_name}.."
 
     chat_engine = chat_engine_map[collection_name]
 
@@ -97,12 +92,12 @@ def infer2(msg, history, collection_name):
         streaming_response = chat_engine.stream_chat(query_text)
         generated_text = ""
         for token in streaming_response.response_gen:
-            generated_text = generated_text + token
-        yield generated_text
+            generated_text += token
+        return generated_text
     except Exception as e:
         op = f"failed with exception {e}"
         print(op)
-        yield op
+        return op
 
 class CMLLLM:
     MODELS_PATH = "./models"
@@ -137,9 +132,6 @@ class CMLLLM:
 
         self.node_parser = SimpleNodeParser(chunk_size=1024, chunk_overlap=128)
 
-        if progress_bar:
-            progress_bar.progress(25)
-
         self.set_global_settings(
             model_name=model_name,
             embed_model_path=embed_model_name,
@@ -154,12 +146,6 @@ class CMLLLM:
         self.similarity_top_k = similarity_top_k
         self.sentense_embedding_percentile_cutoff = sentense_embedding_percentile_cutoff
         self.memory_token_limit = memory_token_limit
-
-        if progress_bar:
-            progress_bar.progress(50)
-
-        if progress_bar:
-            progress_bar.progress(100)
 
     def get_active_model_name(self):
         print(f"active model is {self.active_model_name}")
@@ -177,8 +163,6 @@ class CMLLLM:
 
         active_collection_available.pop(collection_name, None)
         chat_engine_map.pop(collection_name, None)
-        if progress_bar:
-            progress_bar.progress(100)
 
     def set_collection_name(
         self,
@@ -199,12 +183,7 @@ class CMLLLM:
             print(
                 f"collection {collection_name} is already configured and chat_engine is set"
             )
-            if progress_bar:
-                progress_bar.progress(100)
             return
-
-        if progress_bar:
-            progress_bar.progress(25)
 
         vector_store = MilvusVectorStore(
             dim=self.dim,
@@ -213,8 +192,6 @@ class CMLLLM:
 
         index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 
-        if progress_bar:
-            progress_bar.progress(50)
 
         chat_engine = index.as_chat_engine(
             chat_mode=ChatMode.CONTEXT,
@@ -235,13 +212,8 @@ class CMLLLM:
             ),
             similarity_top_k=self.similarity_top_k,
         )
-        if progress_bar:
-            progress_bar.progress(75)
-
         chat_engine_map[collection_name] = chat_engine
         print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-        if progress_bar:
-            progress_bar.progress(100)
 
     def ingest(self, files, questions, collection_name, progress_bar=None):
         if not (collection_name in active_collection_available):
@@ -258,8 +230,6 @@ class CMLLLM:
 
         print(f"collection = {collection_name}, questions = {questions}")
 
-        if progress_bar:
-            progress_bar.progress(20)
 
         filename_fn = lambda filename: {"file_name": os.path.basename(filename)}
 
@@ -267,24 +237,16 @@ class CMLLLM:
 
         try:
             start_time = time.time()
-            op = "Questions\n"
+            op = ""
             i = 1
             for file in files:
-                if progress_bar:
-                    progress_bar.progress(30)
 
                 reader = SimpleDirectoryReader(
                     input_files=[file], file_extractor=file_extractor, file_metadata=filename_fn
                 )
-                progress_bar.progress(40)
                 document = reader.load_data(num_workers=1)
-                if progress_bar:
-                    progress_bar.progress(60, "document processed")
 
                 print(f"document = {document}")
-
-                if progress_bar:
-                    progress_bar.progress(70, "document processed")
 
                 vector_store = MilvusVectorStore(
                     dim=self.dim,
@@ -311,8 +273,6 @@ class CMLLLM:
                 for q in eval_questions:
                     op += str(q) + "\n"
                     i += 1
-                if progress_bar:
-                    progress_bar.progress(80)
 
 #                if questions:
 #                  try:
@@ -333,12 +293,8 @@ class CMLLLM:
 #                    print(f"Exception in question generation: {e}")
 #                    if progress_bar:
 #                      progress_bar.progress(80, f"Exception in question generation: {e}")
-                if progress_bar:
-                    progress_bar.progress(90)
                 active_collection_available[collection_name] = True
                 i += 1
-            if progress_bar:
-                progress_bar.progress(100)
             print(op)
             return op
         except Exception as e:
@@ -391,9 +347,6 @@ class CMLLLM:
         model_path = self.get_model_path(model_name)
         print(f"model_path = {model_path}")
 
-        if progress_bar:
-            progress_bar.progress(10)
-
         Settings.llm = LlamaCPP(
             model_path=model_path,
             temperature=temperature,
@@ -406,16 +359,12 @@ class CMLLLM:
             verbose=True,
         )
 
-        if progress_bar:
-            progress_bar.progress(30)
 
         Settings.embed_model = HuggingFaceEmbedding(
             model_name=embed_model_path,
             cache_folder=self.EMBED_PATH,
         )
 
-        if progress_bar:
-            progress_bar.progress(50)
 
     def get_model_path(self, model_name):
         filename = supported_llm_models[model_name]
