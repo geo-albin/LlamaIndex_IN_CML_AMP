@@ -73,6 +73,7 @@ print(subprocess.run([f"rm -rf {QUESTIONS_FOLDER}"], shell=True))
 milvus_start = vectordb.reset_vector_db()
 print(f"milvus_start = {milvus_start}")
 
+
 def infer2(msg, history, collection_name):
     query_text = msg
     print(f"query = {query_text}, collection name = {collection_name}")
@@ -80,7 +81,7 @@ def infer2(msg, history, collection_name):
     if len(query_text) == 0:
         return "Please ask some questions"
 
-    if collection_name in active_collection_available and active_collection_available[collection_name] != True:
+    if collection_name in active_collection_available and not active_collection_available[collection_name]:
         return "No documents are processed yet. Please process some documents.."
 
     if collection_name not in chat_engine_map:
