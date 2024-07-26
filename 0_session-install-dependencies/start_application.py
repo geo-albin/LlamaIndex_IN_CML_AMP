@@ -16,7 +16,7 @@ client = cmlapi.default_client(
 )
 available_runtimes = client.list_runtimes(
     search_filter=json.dumps(
-        {"kernel": "Python 3.11", "edition": "Nvidia GPU", "editor": "PBJ Workbench"}
+        {"kernel": "Python 3.10", "edition": "Nvidia GPU", "editor": "PBJ Workbench"}
     )
 )
 print(available_runtimes)

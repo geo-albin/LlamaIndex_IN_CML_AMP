@@ -1,4 +1,5 @@
 import os
+import asyncio
 from llama_index.core.node_parser import SimpleNodeParser
 from llama_index.core import (
     VectorStoreIndex,
@@ -93,8 +94,9 @@ def infer2(msg, history, collection_name):
         streaming_response = chat_engine.stream_chat(query_text)
         generated_text = ""
         for token in streaming_response.response_gen:
-            generated_text += token
-        return generated_text
+            yield token
+#            generated_text += token
+#        return generated_text
     except Exception as e:
         op = f"failed with exception {e}"
         print(op)
@@ -274,26 +276,6 @@ class CMLLLM:
                 for q in eval_questions:
                     op += str(q) + "\n"
                     i += 1
-
-#                if questions:
-#                  try:
-#                    snapshot_download(
-#                        "grappa-data/semqa-data", repo_type="dataset", use_auth_token=hf_token
-#                    )
-#                    file_path = hf_hub_download(
-#                        "grappa-data/semqa-data",
-#                        "QA_CoQA/qa_pairs.json",
-#                        repo_type="dataset",
-#                        use_auth_token=hf_token,
-#                    )
-#                    qg = DatasetGenerator(questions_folder=self.questions_folder)
-#                    qg.load_questions(file_path)
-#                    questions = qg.generate_questions_from_text(documents[0].get_text())
-#                    op += f"Generated questions for document {i} are: {questions}\n"
-#                  except Exception as e:
-#                    print(f"Exception in question generation: {e}")
-#                    if progress_bar:
-#                      progress_bar.progress(80, f"Exception in question generation: {e}")
                 active_collection_available[collection_name] = True
                 i += 1
             print(op)

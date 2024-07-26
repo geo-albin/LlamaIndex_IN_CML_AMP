@@ -9,11 +9,14 @@ from utils.cmlllm import (
     infer2,
 )
 from utils.check_dependency import check_gpu_enabled
+import threading
+import itertools
 
 MAX_QUESTIONS = 5
 file_types = ["pdf", "html", "txt"]
 llm_choice = get_supported_models()
 embed_models = get_supported_embed_models()
+lock = threading.Lock()
 
 def save_uploadedfile(uploadedfile):
     save_dir = "uploaded_files"
@@ -89,8 +92,6 @@ if 'documents_processed' not in st.session_state:
     st.session_state['documents_processed'] = False
 if 'questions' not in st.session_state:
     st.session_state['questions'] = []
-if 'auto_generated_questions' not in st.session_state:
-    st.session_state.auto_generated_questions = ""
 
 header = get_latest_default_collection()
 
@@ -113,19 +114,19 @@ def demo():
             if uploaded_files:
                 st.session_state.processing = True
                 with st.spinner("Processing..."):
-                    questions = upload_document_and_ingest_new(uploaded_files, st.session_state.num_questions, collection_name)
+                    with lock:
+                        questions = upload_document_and_ingest_new(uploaded_files, st.session_state.num_questions, collection_name)
                     st.success("Done")
                     st.session_state['documents_processed'] = True
                     st.session_state['questions'] = questions
                     st.session_state['processing'] = False
                     st.session_state.used_collections.append(collection_name)
-                    st.session_state.auto_generated_questions = questions
-                    st.text_area("Auto-Generated Questions", st.session_state.auto_generated_questions, key='auto_generated_questions')
+                    st.text_area("Auto-Generated Questions", questions, key='auto_generated_questions')
 
         st.checkbox("Advanced Settings", value=st.session_state.get('advanced_settings', False), key='advanced_settings')
 
         if st.session_state['advanced_settings']:
-            num_questions = st.slider("Number of question generations", min_value=1, max_value=10, value=st.session_state.num_questions, key='num_questions')
+            num_questions = st.slider("Number of question generations", min_value=1, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
             if num_questions != st.session_state.num_questions:
                 st.session_state.num_questions = num_questions
             with st.expander("Collection Configuration"):
@@ -140,8 +141,6 @@ def demo():
                     st.experimental_rerun()
                 elif collection_name == "default_collection":
                     st.error("You can't delete the default collection")
-        if st.session_state.get('auto_generated_questions'):
-            st.text_area("Auto-Generated Questions", st.session_state.auto_generated_questions, key='auto_generated_questions_display')
 
     # Display chat messages
     if 'messages' not in st.session_state:
@@ -161,13 +160,15 @@ def demo():
 
             with st.spinner("Thinking..."):
                 response = infer2(user_prompt, "", st.session_state.current_collection)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-
+                response1, response2 = itertools.tee(response)
             with st.chat_message("assistant"):
-                st.write(response)
+                st.write_stream(response1)
+            complete_response = ""
+            for response_chunk in response2:
+              complete_response += response_chunk
+            st.session_state.messages.append({"role": "assistant", "content": complete_response})
     else:
         st.write("Documents are not yet processed. Please upload and process documents before asking questions.")
-
 
 if __name__ == "__main__":
     demo()

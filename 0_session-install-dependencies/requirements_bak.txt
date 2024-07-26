@@ -20,5 +20,3 @@ unstructured==0.13.2
 spacy==3.7.4
 python-dotenv
 requests
-streamlit
-streamlit-option-menu
