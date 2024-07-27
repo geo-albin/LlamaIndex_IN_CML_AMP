@@ -92,6 +92,10 @@ if 'documents_processed' not in st.session_state:
     st.session_state['documents_processed'] = False
 if 'questions' not in st.session_state:
     st.session_state['questions'] = []
+if 'success_message' not in st.session_state:
+    st.session_state['success_message'] = ""
+if 'current_collection' not in st.session_state:
+    st.session_state.current_collection = ""
 
 header = get_latest_default_collection()
 
@@ -112,6 +116,7 @@ def demo():
 
         if st.button("Submit & Process", disabled=st.session_state.processing):
             if uploaded_files:
+                st.session_state['advanced_settings'] = False
                 st.session_state.processing = True
                 with st.spinner("Processing..."):
                     with lock:
@@ -133,26 +138,28 @@ def demo():
                 custom_input = st.text_input("Enter your custom collection name:")
                 if st.button("Add to the collection list") and custom_input:
                     st.session_state.collection_list_items.append(custom_input)
-                    st.success("Collection {} added".format(custom_input))
+                    st.session_state['success_message'] = f"Collection {custom_input} added"
                     st.experimental_rerun()
                 if st.button("Delete the Selected Collection") and collection_name != "default_collection":
                     st.session_state.collection_list_items.remove(collection_name)
                     st.session_state.llm.delete_collection_name(collection_name)
+                    st.session_state['success_message'] = f"Collection {collection_name} deleted"
                     st.experimental_rerun()
                 elif collection_name == "default_collection":
                     st.error("You can't delete the default collection")
 
-    # Display chat messages
-    if 'messages' not in st.session_state:
-        st.session_state.messages = []
+                # Display success message if there is one
+                if st.session_state['success_message']:
+                    st.success(st.session_state['success_message'])
+                    st.session_state['success_message'] = ""
 
+    # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message['role']):
             st.write(message['content'])
 
     if st.session_state['documents_processed']:
         user_prompt = st.chat_input("Ask me anything about the content of the document:")
-        st.session_state.messages = [{'role': 'assistant', "content": f'Using collection: {collection_name}'}]
         if user_prompt:
             st.session_state.messages.append({"role": "user", "content": user_prompt})
             with st.chat_message("user"):
@@ -161,12 +168,13 @@ def demo():
             with st.spinner("Thinking..."):
                 response = infer2(user_prompt, "", st.session_state.current_collection)
                 response1, response2 = itertools.tee(response)
+                complete_response = ""
+                for response_chunk in response2:
+                    complete_response += response_chunk
+
+            st.session_state.messages.append({"role": "assistant", "content": complete_response})
             with st.chat_message("assistant"):
                 st.write_stream(response1)
-            complete_response = ""
-            for response_chunk in response2:
-              complete_response += response_chunk
-            st.session_state.messages.append({"role": "assistant", "content": complete_response})
     else:
         st.write("Documents are not yet processed. Please upload and process documents before asking questions.")
 
