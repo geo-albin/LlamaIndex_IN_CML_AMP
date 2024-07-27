@@ -87,7 +87,7 @@ if 'used_collections' not in st.session_state:
 if 'processing' not in st.session_state:
     st.session_state.processing = False
 if 'messages' not in st.session_state:
-    st.session_state.messages = [{'role': 'assistant', "content": 'Hello! Upload a PDF/Link and ask me anything about the content.'}]
+    st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using the collection: {st.session_state.collection_list_items[0]}.'}]
 if 'documents_processed' not in st.session_state:
     st.session_state['documents_processed'] = False
 if 'questions' not in st.session_state:
@@ -95,7 +95,7 @@ if 'questions' not in st.session_state:
 if 'success_message' not in st.session_state:
     st.session_state['success_message'] = ""
 if 'current_collection' not in st.session_state:
-    st.session_state.current_collection = ""
+    st.session_state.current_collection = st.session_state.collection_list_items[0]
 
 header = get_latest_default_collection()
 
@@ -113,6 +113,8 @@ def demo():
         if collection_name != st.session_state.get('current_collection'):
             st.session_state.llm.set_collection_name(collection_name=collection_name)
             st.session_state.current_collection = collection_name
+            # Update the initial message with the new collection
+            st.session_state.messages[0]['content'] = f'Hello! You are using the collection: {collection_name}.'
 
         if st.button("Submit & Process", disabled=st.session_state.processing):
             if uploaded_files:
@@ -160,7 +162,6 @@ def demo():
 
     if st.session_state['documents_processed']:
         user_prompt = st.chat_input("Ask me anything about the content of the document:")
-        st.session_state.messages = [{'role': 'assistant', "content": f'Using collection: {collection_name}'}]
         if user_prompt:
             st.session_state.messages.append({"role": "user", "content": user_prompt})
             with st.chat_message("user"):
