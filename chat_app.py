@@ -160,6 +160,7 @@ def demo():
 
     if st.session_state['documents_processed']:
         user_prompt = st.chat_input("Ask me anything about the content of the document:")
+        st.session_state.messages = [{'role': 'assistant', "content": f'Using collection: {collection_name}'}]
         if user_prompt:
             st.session_state.messages.append({"role": "user", "content": user_prompt})
             with st.chat_message("user"):
