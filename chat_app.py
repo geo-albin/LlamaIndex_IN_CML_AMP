@@ -133,7 +133,7 @@ def demo():
         st.checkbox("Advanced Settings", value=st.session_state.get('advanced_settings', False), key='advanced_settings')
 
         if st.session_state['advanced_settings']:
-            num_questions = st.slider("Number of question generations", min_value=1, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
+            num_questions = st.slider("Number of question generations", min_value=0, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
             if num_questions != st.session_state.num_questions:
                 st.session_state.num_questions = num_questions
             with st.expander("Collection Configuration"):
@@ -169,14 +169,10 @@ def demo():
 
             with st.spinner("Thinking..."):
                 response = infer2(user_prompt, "", st.session_state.current_collection)
-                response1, response2 = itertools.tee(response)
-                complete_response = ""
-                for response_chunk in response2:
-                    complete_response += response_chunk
+                st.session_state.messages.append({"role": "assistant", "content": response})
 
-            st.session_state.messages.append({"role": "assistant", "content": complete_response})
             with st.chat_message("assistant"):
-                st.write_stream(response1)
+                st.write(response)
     else:
         st.write("Documents are not yet processed. Please upload and process documents before asking questions.")
 
