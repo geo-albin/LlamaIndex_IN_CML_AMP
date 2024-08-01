@@ -103,7 +103,7 @@ def refresh_session_state_on_collection_change(collection_name):
     st.session_state.llm.set_collection_name(collection_name=collection_name)
     st.session_state.current_collection = collection_name
     st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using the collection: {collection_name}.'}]
-#    st.session_state.documents_processed = False
+    st.session_state.documents_processed = False
     st.session_state.questions = []
     st.session_state.processing = False
     st.session_state.success_message = ""
