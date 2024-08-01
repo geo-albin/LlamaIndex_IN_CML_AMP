@@ -99,6 +99,15 @@ if 'current_collection' not in st.session_state:
 
 header = get_latest_default_collection()
 
+def refresh_session_state_on_collection_change(collection_name):
+    st.session_state.llm.set_collection_name(collection_name=collection_name)
+    st.session_state.current_collection = collection_name
+    st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using the collection: {collection_name}.'}]
+#    st.session_state.documents_processed = False
+    st.session_state.questions = []
+    st.session_state.processing = False
+    st.session_state.success_message = ""
+
 def demo():
     st.title("AI Chat with Your Documents")
 
@@ -111,9 +120,10 @@ def demo():
         )
 
         if collection_name != st.session_state.get('current_collection'):
-            st.session_state.llm.set_collection_name(collection_name=collection_name)
-            st.session_state.current_collection = collection_name
-            # Update the initial message with the new collection
+            refresh_session_state_on_collection_change(collection_name)
+            # st.session_state.llm.set_collection_name(collection_name=collection_name)
+            # st.session_state.current_collection = collection_name
+            # # Update the initial message with the new collection
             st.session_state.messages[0]['content'] = f'Hello! You are using the collection: {collection_name}.'
 
         if st.button("Submit & Process", disabled=st.session_state.processing):
@@ -128,12 +138,13 @@ def demo():
                     st.session_state['questions'] = questions
                     st.session_state['processing'] = False
                     st.session_state.used_collections.append(collection_name)
-                    st.text_area("Auto-Generated Questions", questions, key='auto_generated_questions')
-
+                    st.text_area("Auto-Generated Questions", st.session_state['questions'], key='auto_generated_questions')
+        st.write("")  # Add empty line for space
+        st.write("")  # Add another empty line for more space
         st.checkbox("Advanced Settings", value=st.session_state.get('advanced_settings', False), key='advanced_settings')
 
         if st.session_state['advanced_settings']:
-            num_questions = st.slider("Number of question generations", min_value=0, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
+            num_questions = st.slider("Number of question generations", min_value=1, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
             if num_questions != st.session_state.num_questions:
                 st.session_state.num_questions = num_questions
             with st.expander("Collection Configuration"):
@@ -168,11 +179,12 @@ def demo():
                 st.write(user_prompt)
 
             with st.spinner("Thinking..."):
-                response = infer2(user_prompt, "", st.session_state.current_collection)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-
-            with st.chat_message("assistant"):
-                st.write(response)
+              response = infer2(user_prompt, "", st.session_state.current_collection)
+              response1, response2 = itertools.tee(response)
+              with st.chat_message("assistant"):
+                st.write_stream(response1)
+              complete_response = "".join(list(response2))
+              st.session_state.messages.append({"role": "assistant", "content": complete_response})
     else:
         st.write("Documents are not yet processed. Please upload and process documents before asking questions.")
 
