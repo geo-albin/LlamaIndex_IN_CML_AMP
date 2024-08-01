@@ -144,7 +144,7 @@ def demo():
         st.checkbox("Advanced Settings", value=st.session_state.get('advanced_settings', False), key='advanced_settings')
 
         if st.session_state['advanced_settings']:
-            num_questions = st.slider("Number of question generations", min_value=1, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
+            num_questions = st.slider("Number of question generations", min_value=0, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
             if num_questions != st.session_state.num_questions:
                 st.session_state.num_questions = num_questions
             with st.expander("Collection Configuration"):
