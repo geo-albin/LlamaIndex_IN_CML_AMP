@@ -147,7 +147,7 @@ def demo():
             "Select Folder",
             st.session_state.collection_list_items
         )
-        c = st.expander(f"Existing files in : {collection_name}:")
+        c = st.expander(f"Existing files in : {collection_name}")
         if collection_name != st.session_state.get('current_collection'):
             refresh_session_state_on_collection_change(collection_name)
             # st.session_state.llm.set_collection_name(collection_name=collection_name)
