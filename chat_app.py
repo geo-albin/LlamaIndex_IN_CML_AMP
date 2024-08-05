@@ -116,7 +116,7 @@ if 'used_collections' not in st.session_state:
 if 'processing' not in st.session_state:
     st.session_state.processing = False
 if 'messages' not in st.session_state:
-    st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using the collection: {st.session_state.collection_list_items[0]}.'}]
+    st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using {st.session_state.collection_list_items[0]} folder.'}]
 if 'documents_processed' not in st.session_state:
     st.session_state['documents_processed'] = False
 if 'questions' not in st.session_state:
@@ -131,7 +131,7 @@ header = get_latest_default_collection()
 def refresh_session_state_on_collection_change(collection_name):
     st.session_state.llm.set_collection_name(collection_name=collection_name)
     st.session_state.current_collection = collection_name
-    st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using the collection: {collection_name}.'}]
+    st.session_state.messages = [{'role': 'assistant', "content": f'Hello! You are using {collection_name} folder.'}]
     st.session_state.documents_processed = False
     st.session_state.questions = []
     st.session_state.processing = False
@@ -153,7 +153,7 @@ def demo():
             # st.session_state.llm.set_collection_name(collection_name=collection_name)
             # st.session_state.current_collection = collection_name
             # # Update the initial message with the new collection
-            st.session_state.messages[0]['content'] = f'Hello! You are using {collection_name} folder: .'
+            st.session_state.messages[0]['content'] = f'Hello! You are using {collection_name} folder.'
         items = None
         if st.session_state.get('current_collection'):
           dir_path = os.path.join("uploaded_files", collection_name)
