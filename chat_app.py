@@ -36,6 +36,16 @@ def delete_collection_name(collection_name):
     if os.path.exists(collection_dir):
       shutil.rmtree(collection_dir)
 
+def list_files_in_collection(collection_name):
+    collection_dir = os.path.join("uploaded_files", collection_name)
+    filelist = []
+    if os.path.exists(collection_dir):
+        files = os.listdir(collection_dir)
+        for f in files:
+          filelist.append(os.path.join(collection_dir, f))
+        return filelist
+    return []
+
 def get_collection_folders(directory="uploaded_files"):
     try:
         # Get all folders in the specified directory
@@ -79,14 +89,15 @@ def validate_collection_name(collection_name):
     return True
 
 def upload_document_and_ingest_new(files, questions, collection_name):
-    if not files:
-        return "No files to upload"
 
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(save_uploadedfile, file, collection_name) for file in files]
         saved_files = [future.result() for future in futures]
+    collection_files = list_files_in_collection(collection_name)
+    if collection_files == []:
+      return "No files"
 
-    output = st.session_state.llm.ingest(saved_files, questions, collection_name)
+    output = st.session_state.llm.ingest(collection_files, questions, collection_name)
     return output
 
 # Initialize session state if not already present
@@ -133,19 +144,30 @@ def demo():
         st.title("Menu:")
         uploaded_files = st.file_uploader("Upload your PDF/HTML/TXT Files", type=file_types, accept_multiple_files=True)
         collection_name = st.selectbox(
-            "Select Collection",
+            "Select Folder",
             st.session_state.collection_list_items
         )
-
+        c = st.expander(f"Existing files in : {collection_name}:")
         if collection_name != st.session_state.get('current_collection'):
             refresh_session_state_on_collection_change(collection_name)
             # st.session_state.llm.set_collection_name(collection_name=collection_name)
             # st.session_state.current_collection = collection_name
             # # Update the initial message with the new collection
-            st.session_state.messages[0]['content'] = f'Hello! You are using the collection: {collection_name}.'
-
+            st.session_state.messages[0]['content'] = f'Hello! You are using {collection_name} folder: .'
+        items = None
+        if st.session_state.get('current_collection'):
+          dir_path = os.path.join("uploaded_files", collection_name)
+          if os.path.exists(dir_path):
+            items = os.listdir(dir_path)
+            if items:
+              for item in items:
+                c.write(item)
+            else:
+              c.write("No docs found")
+          else:
+            c.write(f"{collection_name} is empty")
         if st.button("Submit & Process", disabled=st.session_state.processing):
-            if uploaded_files:
+            if uploaded_files or items:
                 st.session_state['advanced_settings'] = False
                 st.session_state.processing = True
                 with st.spinner("Processing..."):
@@ -165,20 +187,24 @@ def demo():
             num_questions = st.slider("Number of question generations", min_value=0, max_value=MAX_QUESTIONS, value=st.session_state.num_questions, key='num_questions')
             if num_questions != st.session_state.num_questions:
                 st.session_state.num_questions = num_questions
-            with st.expander("Collection Configuration"):
-                custom_input = st.text_input("Enter your custom collection name:")
-                if st.button("Add to the collection list") and custom_input:
-                    st.session_state.collection_list_items.append(custom_input)
-                    st.session_state['success_message'] = f"Collection {custom_input} added"
-                    st.experimental_rerun()
-                if st.button("Delete the Selected Collection") and collection_name != "default_collection":
+            with st.expander("Folder Configuration"):
+                custom_input = st.text_input("Enter your custom folder name:")
+                if st.button("Add to the folder list") and custom_input:
+                    custom_input = custom_input.rstrip().replace(" ", "_")
+                    if custom_input not in st.session_state.collection_list_items:
+                      st.session_state.collection_list_items.append(custom_input)
+                      st.session_state['success_message'] = f"Folder {custom_input} added"
+                      st.experimental_rerun()
+                    else:
+                      st.warning(f'Folder {custom_input} already exists, try other name')
+                if st.button("Delete the Selected Folder") and collection_name != "default_collection":
                     st.session_state.collection_list_items.remove(collection_name)
                     st.session_state.llm.delete_collection_name(collection_name)
-                    st.session_state['success_message'] = f"Collection {collection_name} deleted"
+                    st.session_state['success_message'] = f"Folder {collection_name} deleted"
                     delete_collection_name(collection_name)
                     st.experimental_rerun()
                 elif collection_name == "default_collection":
-                    st.error("You can't delete the default collection")
+                    st.error("You can't delete the default_collection")
 
                 # Display success message if there is one
                 if st.session_state['success_message']:
