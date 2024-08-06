@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Cloudera, Inc.
+# Copyright (c) 2024 Cloudera, Inc.
 
 # This file is part of Chat with your doc AMP.
 
