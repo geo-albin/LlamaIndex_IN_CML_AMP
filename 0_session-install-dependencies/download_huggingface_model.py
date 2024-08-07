@@ -1,16 +1,21 @@
+# Copyright (c) 2024 Cloudera, Inc.
+
+# This file is part of Chat with your doc AMP.
+
+# Chat with your doc AMP is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+
+# Chat with your doc AMP is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along with Chat with your doc AMP. If not, see <https://www.gnu.org/licenses/>.
+
 from huggingface_hub import hf_hub_download
 from huggingface_hub import snapshot_download
 from utils.common import supported_llm_models, supported_embed_models
 
 MODELS_PATH = "./models"
 EMBEDS_PATH = "./embed_models"
-
-# supported_llm_models = {
-#     "TheBloke/Mistral-7B-Instruct-v0.2-GGUF": "mistral-7b-instruct-v0.2.Q5_K_M.gguf",
-#     "microsoft/Phi-3-mini-4k-instruct-gguf": "Phi-3-mini-4k-instruct-q4.gguf",
-# }
-
-# supported_embed_models = ["thenlper/gte-large"]
 
 for supported_llm_model in supported_llm_models:
     print(
