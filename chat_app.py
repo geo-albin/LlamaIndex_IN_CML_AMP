@@ -32,6 +32,9 @@ lock = threading.Lock()
 
 
 def save_uploadedfile(uploadedfile, collection_name):
+    """
+    takes the temporary file from streamlit upload and saves it
+    """
     save_dir = os.path.join("uploaded_files", collection_name)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -51,6 +54,9 @@ def delete_collection_name(collection_name):
 
 
 def list_files_in_collection(collection_name):
+    """
+    lists existing files already in the collection
+    """
     collection_dir = os.path.join("uploaded_files", collection_name)
     filelist = []
     if os.path.exists(collection_dir):
@@ -74,48 +80,12 @@ def get_collection_folders(directory="uploaded_files"):
         return []
 
 
-def reconfigure_llm(
-    model_name="TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
-    embed_model_name="thenlper/gte-large",
-    temperature=0.0,
-    max_new_tokens=1024,
-    context_window=3900,
-    gpu_layers=20,
-):
-    st.session_state.llm.set_global_settings_common(
-        model_name=model_name,
-        embed_model_path=embed_model_name,
-        temperature=temperature,
-        max_new_tokens=max_new_tokens,
-        context_window=context_window,
-        n_gpu_layers=gpu_layers,
-    )
-    return "Done reconfiguring llm!!!"
-
 
 def get_latest_default_collection():
     collection_list_items = get_active_collections()
     if collection_list_items:
         return collection_list_items[0]
     return ""
-
-
-def validate_llm(model_name, embed_model_name):
-    if not model_name:
-        st.error("Select a valid model name")
-        return False
-    if not embed_model_name:
-        st.error("Select a valid embed model name")
-        return False
-    return True
-
-
-def validate_collection_name(collection_name):
-    if not collection_name:
-        st.error("Invalid collection name, please set a valid collection name string.")
-        return False
-    return True
-
 
 def upload_document_and_ingest_new(files, questions, collection_name):
 
@@ -189,7 +159,7 @@ def demo():
     with st.sidebar:
         st.title("Menu:")
         uploaded_files = st.file_uploader(
-            "Upload your PDF/HTML/TXT Files",
+            "Upload PDF/HTML/TXT Files",
             type=file_types,
             accept_multiple_files=True,
         )
@@ -199,8 +169,6 @@ def demo():
         c = st.expander(f"Existing files in : {collection_name}")
         if collection_name != st.session_state.get("current_collection"):
             refresh_session_state_on_collection_change(collection_name)
-            # st.session_state.llm.set_collection_name(collection_name=collection_name)
-            # st.session_state.current_collection = collection_name
             # # Update the initial message with the new collection
             st.session_state.messages[0][
                 "content"
@@ -221,7 +189,7 @@ def demo():
             if uploaded_files or items:
                 st.session_state["advanced_settings"] = False
                 st.session_state.processing = True
-                with st.spinner("Processing..."):
+                with st.spinner("Analyzing..."):
                     with lock:
                         questions = upload_document_and_ingest_new(
                             uploaded_files,
@@ -234,7 +202,7 @@ def demo():
                     st.session_state["processing"] = False
                     st.session_state.used_collections.append(collection_name)
                     st.text_area(
-                        "Auto-Generated Questions",
+                        "Generated Questions",
                         st.session_state["questions"],
                         key="auto_generated_questions",
                     )
@@ -248,7 +216,7 @@ def demo():
 
         if st.session_state["advanced_settings"]:
             num_questions = st.slider(
-                "Number of question generations",
+                "Generated questions per document",
                 min_value=0,
                 max_value=MAX_QUESTIONS,
                 value=st.session_state.num_questions,
@@ -258,7 +226,7 @@ def demo():
                 st.session_state.num_questions = num_questions
             with st.expander("Folder Configuration"):
                 custom_input = st.text_input("Enter your custom folder name:")
-                if st.button("Add to the folder list") and custom_input:
+                if st.button("Create new folder") and custom_input:
                     custom_input = custom_input.rstrip().replace(" ", "_")
                     if custom_input not in st.session_state.collection_list_items:
                         st.session_state.collection_list_items.append(custom_input)
@@ -314,7 +282,7 @@ def demo():
                 )
     else:
         st.write(
-            "Documents are not yet processed. Please upload and process documents before asking questions."
+            "Documents are not yet analyzed. Please upload and analyze documents before asking questions."
         )
 
 
