@@ -92,11 +92,8 @@ def infer2(msg, history, collection_name):
 
     try:
         streaming_response = chat_engine.stream_chat(query_text)
-        generated_text = ""
         for token in streaming_response.response_gen:
             yield token
-#            generated_text += token
-#        return generated_text
     except Exception as e:
         op = f"failed with exception {e}"
         print(op)
@@ -116,7 +113,7 @@ class CMLLLM:
         context_window=3900,
         gpu_layers=20,
         dim=1024,
-        collection_name="default_collection",
+        collection_name="Default",
         memory_token_limit=3900,
         sentense_embedding_percentile_cutoff=0.8,
         similarity_top_k=2,
@@ -216,7 +213,6 @@ class CMLLLM:
             similarity_top_k=self.similarity_top_k,
         )
         chat_engine_map[collection_name] = chat_engine
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
     def ingest(self, files, questions, collection_name, progress_bar=None):
         if not (collection_name in active_collection_available):
@@ -278,7 +274,6 @@ class CMLLLM:
                     i += 1
                 active_collection_available[collection_name] = True
                 i += 1
-            print(op)
             return op
         except Exception as e:
             print(f"Exception in ingest: {e}")

@@ -25,13 +25,16 @@ import itertools
 import shutil
 
 MAX_QUESTIONS = 5
-file_types = ["pdf", "html", "txt"]
+file_types = ["pdf"]
 llm_choice = get_supported_models()
 embed_models = get_supported_embed_models()
 lock = threading.Lock()
 
 
 def save_uploadedfile(uploadedfile, collection_name):
+    """
+    takes the temporary file from streamlit upload and saves it
+    """
     save_dir = os.path.join("uploaded_files", collection_name)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -51,6 +54,9 @@ def delete_collection_name(collection_name):
 
 
 def list_files_in_collection(collection_name):
+    """
+    lists existing files already in the collection
+    """
     collection_dir = os.path.join("uploaded_files", collection_name)
     filelist = []
     if os.path.exists(collection_dir):
@@ -152,7 +158,7 @@ def demo():
     with st.sidebar:
         st.title("Menu:")
         uploaded_files = st.file_uploader(
-            "Upload your PDF/HTML/TXT Files",
+            "Upload PDF Files",
             type=file_types,
             accept_multiple_files=True,
         )
@@ -161,8 +167,6 @@ def demo():
         )
         if collection_name != st.session_state.get("current_collection"):
             refresh_session_state_on_collection_change(collection_name)
-            # st.session_state.llm.set_collection_name(collection_name=collection_name)
-            # st.session_state.current_collection = collection_name
             # # Update the initial message with the new collection
             st.session_state.messages[0][
                 "content"
@@ -177,7 +181,7 @@ def demo():
                     for item in items:
                         existing_files = existing_files + item + "<br/>"
                 else:
-                    c.write("No docs found")
+                    existing_files = f"{collection_name} is empty"
             else:
                 existing_files = f"{collection_name} is empty"
         st.markdown(
@@ -212,7 +216,7 @@ def demo():
             if uploaded_files or items:
                 st.session_state["advanced_settings"] = False
                 st.session_state.processing = True
-                with st.spinner("Processing..."):
+                with st.spinner("Analyzing..."):
                     with lock:
                         questions = upload_document_and_ingest_new(
                             uploaded_files,
@@ -224,6 +228,7 @@ def demo():
                     st.session_state["questions"] = questions
                     st.session_state["processing"] = False
                     st.session_state.used_collections.append(collection_name)
+
         if "questions" in st.session_state and st.session_state["questions"] != []:
             st.text_area(
                 "Generated Questions",
@@ -240,7 +245,7 @@ def demo():
 
         if st.session_state["advanced_settings"]:
             num_questions = st.slider(
-                "Number of question generations",
+                "Generated questions per document",
                 min_value=0,
                 max_value=MAX_QUESTIONS,
                 value=st.session_state.num_questions,
@@ -250,7 +255,7 @@ def demo():
                 st.session_state.num_questions = num_questions
             with st.expander("Folder Configuration"):
                 custom_input = st.text_input("Enter your custom folder name:")
-                if st.button("Add to the folder list") and custom_input:
+                if st.button("Create new folder") and custom_input:
                     custom_input = custom_input.rstrip().replace(" ", "_")
                     if custom_input not in st.session_state.collection_list_items:
                         st.session_state.collection_list_items.append(custom_input)
@@ -306,7 +311,7 @@ def demo():
                 )
     else:
         st.write(
-            "Documents are not yet processed. Please upload and process documents before asking questions."
+            "Documents are not yet analyzed. Please upload and analyze documents before asking questions."
         )
 
 
