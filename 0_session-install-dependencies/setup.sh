@@ -11,4 +11,4 @@
 
 # You should have received a copy of the GNU General Public License along with Chat with your doc AMP. If not, see <https://www.gnu.org/licenses/>.
 pip install -r 0_session-install-dependencies/requirements.txt
-python -c "import nltk; nltk.download('averaged_perceptron_tagger')"
+python -c "import nltk; nltk.download('averaged_perceptron_tagger'); nltk.download('punkt_tab')"

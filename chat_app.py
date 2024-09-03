@@ -74,25 +74,6 @@ def get_collection_folders(directory="uploaded_files"):
         return []
 
 
-def reconfigure_llm(
-    model_name="TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
-    embed_model_name="thenlper/gte-large",
-    temperature=0.0,
-    max_new_tokens=1024,
-    context_window=3900,
-    gpu_layers=20,
-):
-    st.session_state.llm.set_global_settings_common(
-        model_name=model_name,
-        embed_model_path=embed_model_name,
-        temperature=temperature,
-        max_new_tokens=max_new_tokens,
-        context_window=context_window,
-        n_gpu_layers=gpu_layers,
-    )
-    return "Done reconfiguring llm!!!"
-
-
 def get_latest_default_collection():
     collection_list_items = get_active_collections()
     if collection_list_items:
@@ -100,25 +81,7 @@ def get_latest_default_collection():
     return ""
 
 
-def validate_llm(model_name, embed_model_name):
-    if not model_name:
-        st.error("Select a valid model name")
-        return False
-    if not embed_model_name:
-        st.error("Select a valid embed model name")
-        return False
-    return True
-
-
-def validate_collection_name(collection_name):
-    if not collection_name:
-        st.error("Invalid collection name, please set a valid collection name string.")
-        return False
-    return True
-
-
 def upload_document_and_ingest_new(files, questions, collection_name):
-
     with ThreadPoolExecutor() as executor:
         futures = [
             executor.submit(save_uploadedfile, file, collection_name) for file in files
@@ -138,7 +101,7 @@ if "llm" not in st.session_state:
         st.session_state.llm = CMLLLM()
 if "collection_list_items" not in st.session_state:
     exiting_collection = get_collection_folders()
-    all_collection = list(set(["default_collection"] + exiting_collection))
+    all_collection = list(set(["Default"] + exiting_collection))
     st.session_state.collection_list_items = all_collection
     st.session_state.llm.set_collection_name(
         collection_name=st.session_state.collection_list_items[0]
@@ -196,7 +159,6 @@ def demo():
         collection_name = st.selectbox(
             "Select Folder", st.session_state.collection_list_items
         )
-        c = st.expander(f"Existing files in : {collection_name}")
         if collection_name != st.session_state.get("current_collection"):
             refresh_session_state_on_collection_change(collection_name)
             # st.session_state.llm.set_collection_name(collection_name=collection_name)
@@ -206,18 +168,47 @@ def demo():
                 "content"
             ] = f"Hello! You are using {collection_name} folder."
         items = None
+        existing_files = ""
         if st.session_state.get("current_collection"):
             dir_path = os.path.join("uploaded_files", collection_name)
             if os.path.exists(dir_path):
                 items = os.listdir(dir_path)
                 if items:
                     for item in items:
-                        c.write(item)
+                        existing_files = existing_files + item + "<br/>"
                 else:
                     c.write("No docs found")
             else:
-                c.write(f"{collection_name} is empty")
-        if st.button("Submit & Process", disabled=st.session_state.processing):
+                existing_files = f"{collection_name} is empty"
+        st.markdown(
+            f"""
+                <div style=";
+                border-radius: 0.5rem;
+                ">
+                <div style="height:2rem;
+                padding-right: 0.5rem;
+                padding-left: 0.5rem;
+                padding-bottom: 0.5rem;
+                padding-top: 0.5rem";
+                display: flex;">
+                Existing files in : {collection_name} 
+                </div>
+                <div  style="overflow-y:auto;
+                height:3rem;
+                padding-right: 0.5rem;
+                padding-left: 0.5rem;
+                padding-bottom: 0.5rem;
+                padding-top: 0.5rem";
+                display: flex;">
+                {existing_files}
+                </div>
+                </div>
+                """,
+            unsafe_allow_html=True
+        )
+        st.write("")  # Add empty line for space
+        st.write("")  # Add another empty line for more space
+        if st.button("Analyze", disabled=st.session_state.processing):
             if uploaded_files or items:
                 st.session_state["advanced_settings"] = False
                 st.session_state.processing = True
@@ -233,11 +224,12 @@ def demo():
                     st.session_state["questions"] = questions
                     st.session_state["processing"] = False
                     st.session_state.used_collections.append(collection_name)
-                    st.text_area(
-                        "Auto-Generated Questions",
-                        st.session_state["questions"],
-                        key="auto_generated_questions",
-                    )
+        if "questions" in st.session_state and st.session_state["questions"] != []:
+            st.text_area(
+                "Generated Questions",
+                st.session_state["questions"],
+                key="auto_generated_questions",
+            )
         st.write("")  # Add empty line for space
         st.write("")  # Add another empty line for more space
         st.checkbox(
@@ -271,8 +263,8 @@ def demo():
                             f"Folder {custom_input} already exists, try other name"
                         )
                 if (
-                    st.button("Delete the Selected Folder")
-                    and collection_name != "default_collection"
+                        st.button("Delete the Selected Folder")
+                        and collection_name != "Default"
                 ):
                     st.session_state.collection_list_items.remove(collection_name)
                     st.session_state.llm.delete_collection_name(collection_name)
@@ -281,8 +273,8 @@ def demo():
                     )
                     delete_collection_name(collection_name)
                     st.experimental_rerun()
-                elif collection_name == "default_collection":
-                    st.error("You can't delete the default_collection")
+                elif collection_name == "Default":
+                    st.error("You can't delete the Default")
 
                 # Display success message if there is one
                 if st.session_state["success_message"]:

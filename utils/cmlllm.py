@@ -63,7 +63,7 @@ def get_supported_models():
     llmList = list(supported_llm_models)
     return llmList
 
-active_collection_available = {"default_collection": False}
+active_collection_available = {"Default": False}
 
 def get_active_collections():
     return list(active_collection_available)
