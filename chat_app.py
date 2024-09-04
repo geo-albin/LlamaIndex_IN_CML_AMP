@@ -40,10 +40,13 @@ def save_uploadedfile(uploadedfile, collection_name):
         os.makedirs(save_dir)
 
     save_path = os.path.join(save_dir, uploadedfile.name)
-    with open(save_path, "wb") as f:
-        f.write(uploadedfile.getbuffer())
-
-    return save_path
+    try:
+        with open(save_path, "wb") as f:
+            f.write(uploadedfile.getbuffer())
+        return save_path
+    except Exception as e:
+        st.error(f"Error saving file {uploadedfile.name}: {e}")
+        return None
 
 
 def delete_collection_name(collection_name):
@@ -88,13 +91,14 @@ def get_latest_default_collection():
 
 
 def upload_document_and_ingest_new(files, questions, collection_name):
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(save_uploadedfile, file, collection_name) for file in files
-        ]
-        saved_files = [future.result() for future in futures]
+    saved_files = []
+    for file in files:
+        save_path = save_uploadedfile(file, collection_name)
+        if save_path:
+            saved_files.append(save_path)
+
     collection_files = list_files_in_collection(collection_name)
-    if collection_files == []:
+    if not collection_files:
         return "No files"
 
     output = st.session_state.llm.ingest(collection_files, questions, collection_name)
@@ -190,19 +194,14 @@ def demo():
                 border-radius: 0.5rem;
                 ">
                 <div style="height:2rem;
-                padding-right: 0.5rem;
-                padding-left: 0.5rem;
-                padding-bottom: 0.5rem;
-                padding-top: 0.5rem";
+                padding: 0.5rem;
                 display: flex;">
                 Existing files in : {collection_name} 
                 </div>
                 <div  style="overflow-y:auto;
                 height:3rem;
-                padding-right: 0.5rem;
-                padding-left: 0.5rem;
-                padding-bottom: 0.5rem;
-                padding-top: 0.5rem";
+                padding:0.5rem;
+                margin-top: 1rem;
                 display: flex;">
                 {existing_files}
                 </div>
